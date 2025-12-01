@@ -1,0 +1,26 @@
+# DAC Demo - Terraform Variables
+#
+# Copy this file to terraform.tfvars and update the values.
+# Do NOT commit terraform.tfvars to git.
+
+# Project Configuration
+project_name = "dac-demo"
+
+# Customer Configuration
+customer_id = "customer-a"  # CHANGE_ME: Your customer identifier (lowercase, hyphens ok)
+
+# Elastic Cloud Configuration
+ec_region              = "us-east-1"
+elastic_version        = "8.17.0"
+deployment_template_id = "aws-storage-optimized"
+elasticsearch_size     = "4g"    # 4GB RAM for demo (use 8g for production)
+kibana_size            = "1g"
+integrations_server_size = "1g"
+
+# GitHub Configuration
+github_owner = "YOUR_GITHUB_USERNAME"  # CHANGE_ME: Your GitHub username or org
+
+# Repository Options
+create_authored_rules_repo = true   # Create clean fork of detection-rules
+create_enabled_rules_repo  = true   # Create enablement repo with CI/CD
+repo_visibility            = "public"  # or "private"
