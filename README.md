@@ -1,139 +1,123 @@
 # dac - Detections as Code CLI
 
-A command-line tool for managing Elastic Security detection rules as code.
+A command-line tool for managing Elastic Security prebuilt rule enablement as code.
 
-## Architecture: Separate Repositories
+## Architecture: Three-Repository Model
 
-This tool is designed with a **two-repository model**:
-
-```
-elastic-dac-implementation/          # This repo - the dac CLI tool
-├── src/dac/                         # CLI source code
-├── tests/                           # Tests
-└── pyproject.toml                   # Package definition
-
-detection-rules-<customer>/          # Separate repo per customer/environment
-├── enablement.yaml                  # Which prebuilt rules to enable/disable
-├── .github/workflows/deploy.yaml    # CI/CD to apply changes
-└── .env.example                     # Environment template
-```
-
-**Why separate repos?**
-- The `dac` CLI is a tool - install it once, use it everywhere
-- Each customer/environment gets its own detection rules repo
-- Changes to rules go through that repo's PR process
-- Credentials stay in each environment's repo secrets
-
-## Use Case 1: GitOps Enablement of Prebuilt Rules
-
-**Goal**: Declaratively manage which Elastic prebuilt detection rules are enabled in your environment, with Git as the source of truth.
-
-Elastic Security ships with hundreds of prebuilt rules, but there's no built-in way to:
-- Define in Git which rules should be enabled for a specific environment
-- Detect drift when someone manually changes rules in Kibana
-- Enforce desired state via CI/CD
-
-The `dac` CLI solves this with `enablement.yaml`.
-
-### Workflow
+This tool uses a **three-repository model** that cleanly separates concerns:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Developer Workstation                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  1. Edit enablement.yaml                                                    │
-│     - Add rule_ids to 'enabled' list                                        │
-│     - Add rule_ids to 'disabled' list                                       │
-│                                                                             │
-│  2. dac validate                                                            │
-│     - Validates YAML syntax and schema                                      │
-│                                                                             │
-│  3. dac diff                                                                │
-│     - Shows which rules will be enabled/disabled                            │
-│     - Preview changes before committing                                     │
-│                                                                             │
-│  4. git commit && git push && create PR                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              GitHub Actions                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  On Pull Request:                                                           │
-│    - dac validate (ensure YAML is valid)                                    │
-│    - dac diff (comment drift report on PR)                                  │
-│                                                                             │
-│  On Merge to Main:                                                          │
-│    - dac push (apply enablement changes to Elastic)                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            Elastic Security                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Rules are now enabled/disabled as declared in enablement.yaml              │
-└─────────────────────────────────────────────────────────────────────────────┘
+elastic-dac-implementation/              # This repo - dac CLI + customer configs
+├── src/dac/                             # CLI source code
+├── customers/                           # Customer configurations (source of truth)
+│   └── <customer>/
+│       ├── config.yaml                  # Customer settings (repos, Kibana URL)
+│       └── in-scope-rules.yaml          # Master list of rules to enable
+├── scripts/                             # Setup scripts
+└── pyproject.toml                       # Package definition
+
+<customer>-enabled-rules/                # Per-customer: prebuilt rule enablement
+├── enablement.yaml                      # Synced from in-scope-rules.yaml
+├── .github/workflows/                   # CI/CD to push to Elastic
+└── .env.example                         # Environment template
+
+<customer>-authored-rules/               # Per-customer: custom rules (optional)
+├── rules/                               # Custom TOML rules
+├── detection_rules/                     # Elastic's detection-rules CLI
+└── ...                                  # Standard detection-rules structure
 ```
 
-### Example enablement.yaml
+### Why This Architecture?
 
-```yaml
-# Prebuilt rules to enable for this environment
-enabled:
-  - "9a1a2dae-0b5f-4c3d-8305-a268d404c306"  # Credential Dumping - LSASS Memory
-  - "f44fa4b6-524c-4e87-8d9e-8c6a45a3a8d9"  # Suspicious PowerShell Execution
-  - "28d39238-0c01-420a-b77a-24e5a7378663"  # Sudo Command Enumeration Detected
+| Repository | Purpose | Managed By |
+|------------|---------|------------|
+| `elastic-dac-implementation` | CLI tool + master rule lists per customer | `dac` CLI |
+| `<customer>-enabled-rules` | Which prebuilt rules are ON/OFF | `dac` CLI |
+| `<customer>-authored-rules` | Custom detection rules | `detection-rules` CLI (Elastic) |
 
-# Prebuilt rules to explicitly disable
-disabled:
-  - "e5c1f8a2-3b4d-4c5e-9f6a-7b8c9d0e1f2a"  # Too noisy for this environment
-```
+**Key benefits:**
+- Clear separation between prebuilt rule management and custom rule authoring
+- The `dac` CLI focuses on ONE thing: prebuilt rule enablement
+- Custom rules use Elastic's official `detection-rules` CLI (no duplication)
+- Customer configs in this repo serve as the source of truth
+- Changes flow through PR review in the customer's enabled-rules repo
 
-### Finding Rule IDs
+## Quick Start
 
-To find a prebuilt rule's `rule_id`:
-1. In Kibana, go to **Security > Rules**
-2. Click on a rule
-3. The `rule_id` is shown in the rule details (or in the URL)
-
-### Demo Steps
-
-1. **Create a new detection rules repo** for your environment
-2. **Install dac**: `pip install dac` or `uv tool install dac`
-3. **Initialize**: `dac init` (creates `enablement.yaml`)
-4. **Configure**: Set `KIBANA_URL` and `ELASTIC_API_KEY` in `.env`
-5. **Edit enablement.yaml**: Add rule IDs to enable
-6. **Validate**: `dac validate`
-7. **Preview**: `dac diff`
-8. **Commit and push**: Create a Pull Request
-9. **Review**: GitHub Action comments with drift report
-10. **Merge**: GitHub Action runs `dac push`
-11. **Verify**: Check Kibana - rules are now enabled
-
-## Installation
-
-### As a CLI tool (recommended)
+### 1. Install dac CLI
 
 ```bash
-# Using uv
+# Using uv (recommended)
 uv tool install git+https://github.com/stuartMoorhouse/elastic-dac-implementation.git
 
 # Using pip
 pip install git+https://github.com/stuartMoorhouse/elastic-dac-implementation.git
 ```
 
-### For development
+### 2. Add a Customer
 
 ```bash
+# Clone this repo for development
 git clone https://github.com/stuartMoorhouse/elastic-dac-implementation.git
 cd elastic-dac-implementation
-uv sync
-uv run dac --help
+
+# Add a new customer
+dac add-customer customer-a --github-owner your-github-username
 ```
+
+This creates:
+- `customers/customer-a/config.yaml` - Customer settings
+- `customers/customer-a/in-scope-rules.yaml` - Rules to enable (edit this!)
+
+### 3. Set Up Customer Repositories
+
+```bash
+# Set environment variables
+export KIBANA_URL="https://your-deployment.kb.us-central1.gcp.cloud.es.io"
+export ELASTIC_API_KEY="your-api-key"
+
+# Create the enabled-rules repo
+./scripts/setup-enabled-rules-repo.sh customer-a
+
+# Optionally, create the authored-rules repo (clean fork of detection-rules)
+./scripts/setup-authored-rules-repo.sh customer-a
+```
+
+### 4. Manage Rules
+
+```bash
+# Edit the master rule list
+vim customers/customer-a/in-scope-rules.yaml
+
+# Validate configuration
+dac validate --customer customer-a
+
+# Preview what will change in Elastic
+dac diff --customer customer-a
+
+# Push changes directly to Elastic
+dac push --customer customer-a
+
+# Or sync to the customer's enabled-rules repo (for PR workflow)
+dac sync --customer customer-a
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `dac add-customer <id>` | Add a new customer configuration |
+| `dac list` | List all configured customers |
+| `dac validate --customer <id>` | Validate customer config and rules |
+| `dac diff --customer <id>` | Show drift between config and Elastic |
+| `dac push --customer <id>` | Push enablement changes to Elastic |
+| `dac push --customer <id> --dry-run` | Preview changes without applying |
+| `dac sync --customer <id>` | Sync rules to customer's enabled-rules repo |
+| `dac setup-repos --customer <id>` | Show commands to create customer repos |
 
 ## Configuration
 
-The CLI reads configuration from environment variables (supports `.env` files):
+### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -141,60 +125,111 @@ The CLI reads configuration from environment variables (supports `.env` files):
 | `ELASTIC_API_KEY` | Yes | API key for authentication |
 | `ELASTIC_SPACE` | No | Kibana space (default: "default") |
 
-## Commands
+### Customer Config (customers/<id>/config.yaml)
 
-| Command | Description |
-|---------|-------------|
-| `dac init` | Initialize repository with `enablement.yaml` template |
-| `dac validate` | Validate YAML files against schemas |
-| `dac diff` | Show enablement drift between Git and Elastic |
-| `dac push` | Apply enablement changes to Elastic |
-| `dac push --dry-run` | Preview changes without applying |
-
-## Setting Up a Customer Repository
-
-Create a new repo for each customer/environment:
-
-```bash
-mkdir detection-rules-acme-corp
-cd detection-rules-acme-corp
-git init
-
-# Initialize with dac
-dac init
-
-# Copy GitHub Actions workflows
-mkdir -p .github/workflows
-# Copy from examples/github-workflows/ in this repo:
-#   - pr-validation.yaml  (validates on PR)
-#   - deploy.yaml         (pushes on merge)
-
-# Configure credentials (add to .gitignore!)
-cp .env.example .env
-# Edit .env with your KIBANA_URL and ELASTIC_API_KEY
-
-# Edit enablement.yaml with your desired rules
-# Then validate and preview
-dac validate
-dac diff
-
-# Commit and push
-git add enablement.yaml .github/
-git commit -m "Initial rule enablement configuration"
-git push
+```yaml
+name: "Customer A"
+enabled_rules_repo: "your-org/customer-a-enabled-rules"
+authored_rules_repo: "your-org/customer-a-authored-rules"  # optional
+kibana_url: "https://customer-a.kb.us-central1.gcp.cloud.es.io"  # optional override
+elastic_space: "default"
 ```
 
-### GitHub Repository Secrets
+### In-Scope Rules (customers/<id>/in-scope-rules.yaml)
 
-Add these secrets to your customer repository (Settings > Secrets > Actions):
+```yaml
+# Prebuilt rules to enable
+enabled:
+  - "28d39238-0c01-420a-b77a-24e5a7378663"  # Sudo Command Enumeration Detected
+  - "ff10d4d8-fea7-422d-afb1-e5a2702369a9"  # Cron Job Created or Modified
 
-| Secret | Description |
-|--------|-------------|
-| `KIBANA_URL` | Full URL to Kibana instance |
-| `ELASTIC_API_KEY` | API key for authentication |
+# Prebuilt rules to explicitly disable
+disabled: []
+```
 
-## Future Use Cases
+## Workflow
 
-- **Custom rule management**: Create and deploy custom detection rules
-- **OOTB rule overrides**: Modify severity, risk score, tags on prebuilt rules
-- **Exception management**: Manage exception lists and items as code
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    This Repo (elastic-dac-implementation)                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Edit customers/<customer>/in-scope-rules.yaml                           │
+│     - Add/remove rule_ids from 'enabled' list                               │
+│                                                                             │
+│  2. dac validate --customer <customer>                                      │
+│     - Validates YAML syntax and schema                                      │
+│                                                                             │
+│  3. dac diff --customer <customer>                                          │
+│     - Shows which rules will be enabled/disabled                            │
+│                                                                             │
+│  4. dac sync --customer <customer>                                          │
+│     - Syncs to customer's enabled-rules repo                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Customer's enabled-rules Repository                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  5. Create Pull Request with updated enablement.yaml                        │
+│     - GitHub Action validates the changes                                   │
+│                                                                             │
+│  6. Merge Pull Request                                                      │
+│     - GitHub Action runs 'dac push' to apply to Elastic                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            Elastic Security                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Rules are now enabled/disabled as declared                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Finding Rule IDs
+
+To find a prebuilt rule's `rule_id`:
+
+1. In Kibana, go to **Security > Rules**
+2. Click on a rule
+3. The `rule_id` is shown in the rule details (or in the URL)
+
+**Example rule IDs:**
+- `28d39238-0c01-420a-b77a-24e5a7378663` - Sudo Command Enumeration Detected
+- `ff10d4d8-fea7-422d-afb1-e5a2702369a9` - Cron Job Created or Modified
+
+## Custom Rules (Optional)
+
+For custom detection rules, use the `<customer>-authored-rules` repository:
+
+```bash
+# Create the authored-rules repo (clean fork of detection-rules)
+./scripts/setup-authored-rules-repo.sh customer-a
+
+# Clone and set up
+gh repo clone your-org/customer-a-authored-rules
+cd customer-a-authored-rules
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+
+# Use Elastic's detection-rules CLI
+python -m detection_rules --help
+```
+
+This keeps custom rule development completely separate from prebuilt rule management.
+
+## Development
+
+```bash
+# Clone this repo
+git clone https://github.com/stuartMoorhouse/elastic-dac-implementation.git
+cd elastic-dac-implementation
+
+# Set up development environment
+uv sync
+
+# Run CLI
+uv run dac --help
+
+# Run tests
+uv run pytest
+```

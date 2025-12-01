@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class EnablementManifest(BaseModel):
-    """Schema for enablement.yaml - declares which rules should be enabled/disabled."""
+    """Schema for enablement.yaml - declares which prebuilt rules should be enabled/disabled."""
 
     enabled: list[str] = Field(
         default_factory=list,
@@ -19,42 +19,54 @@ class EnablementManifest(BaseModel):
 
 
 class RuleOverride(BaseModel):
-    """Schema for OOTB rule override files."""
+    """Schema for prebuilt rule override files.
+
+    Allows customizing properties of prebuilt rules without replacing them.
+    """
 
     rule_id: str = Field(description="The prebuilt rule's rule_id to override")
     severity: Literal["low", "medium", "high", "critical"] | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
-    enabled: bool | None = None
-    tags: list[str] | None = None
+    tags: list[str] | None = Field(default=None, description="Additional tags to add")
+
+    # Scheduling overrides
+    interval: str | None = Field(default=None, description="Rule run interval (e.g., '5m')")
+    from_: str | None = Field(default=None, alias="from", description="Lookback period (e.g., 'now-6m')")
+
+    model_config = {"populate_by_name": True}
 
 
-class ExceptionList(BaseModel):
-    """Schema for exception list definitions."""
+class CustomerConfig(BaseModel):
+    """Schema for customer configuration in customers/<name>/config.yaml."""
 
-    list_id: str = Field(description="Stable unique identifier")
-    name: str = Field(description="Human-readable name")
-    description: str = Field(default="")
-    type: Literal["detection", "endpoint", "rule_default"] = "detection"
-    namespace_type: Literal["single", "agnostic"] = "single"
-    tags: list[str] = Field(default_factory=list)
+    name: str = Field(description="Customer display name")
+    enabled_rules_repo: str = Field(description="GitHub repo for enabled rules (e.g., 'owner/acme-enabled-rules')")
+    authored_rules_repo: str | None = Field(
+        default=None,
+        description="GitHub repo for custom rules (e.g., 'owner/acme-authored-rules')",
+    )
+    kibana_url: str | None = Field(
+        default=None,
+        description="Override KIBANA_URL for this customer",
+    )
+    elastic_space: str = Field(
+        default="default",
+        description="Kibana space for this customer",
+    )
 
 
-class ExceptionEntry(BaseModel):
-    """A single condition in an exception item."""
+class InScopeRules(BaseModel):
+    """Schema for customers/<name>/in-scope-rules.yaml.
 
-    field: str
-    operator: Literal["included", "excluded"]
-    type: Literal["match", "match_any", "exists", "list", "wildcard"]
-    value: str | list[str] | None = None
+    Master list of prebuilt rules that should be enabled for this customer.
+    This is the source of truth that gets synced to the customer's enabled-rules repo.
+    """
 
-
-class ExceptionItem(BaseModel):
-    """Schema for exception item definitions."""
-
-    item_id: str = Field(description="Stable unique identifier")
-    list_id: str = Field(description="Parent list identifier")
-    name: str = Field(description="Human-readable name")
-    description: str = Field(default="")
-    type: Literal["simple"] = "simple"
-    namespace_type: Literal["single", "agnostic"] = "single"
-    entries: list[ExceptionEntry] = Field(default_factory=list)
+    enabled: list[str] = Field(
+        default_factory=list,
+        description="List of prebuilt rule_ids to enable",
+    )
+    disabled: list[str] = Field(
+        default_factory=list,
+        description="List of prebuilt rule_ids to explicitly disable",
+    )

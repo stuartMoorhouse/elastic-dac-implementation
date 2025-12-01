@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from dac.models import EnablementManifest, ExceptionEntry, ExceptionItem, ExceptionList
+from dac.models import CustomerConfig, EnablementManifest, InScopeRules, RuleOverride
 
 
 class TestEnablementManifest:
@@ -25,41 +25,99 @@ class TestEnablementManifest:
         assert "rule-3" in manifest.disabled
 
 
-class TestExceptionList:
-    """Tests for ExceptionList model."""
+class TestInScopeRules:
+    """Tests for InScopeRules model."""
 
-    def test_minimal_exception_list(self) -> None:
-        """Test minimal valid exception list."""
-        exc_list = ExceptionList(
-            list_id="my-list",
-            name="My Exception List",
+    def test_empty_in_scope_rules(self) -> None:
+        """Test empty in-scope rules is valid."""
+        rules = InScopeRules()
+        assert rules.enabled == []
+        assert rules.disabled == []
+
+    def test_in_scope_rules_with_rules(self) -> None:
+        """Test in-scope rules with rule IDs."""
+        rules = InScopeRules(
+            enabled=["28d39238-0c01-420a-b77a-24e5a7378663"],
+            disabled=["ff10d4d8-fea7-422d-afb1-e5a2702369a9"],
         )
-        assert exc_list.list_id == "my-list"
-        assert exc_list.type == "detection"
-        assert exc_list.namespace_type == "single"
+        assert len(rules.enabled) == 1
+        assert len(rules.disabled) == 1
 
-    def test_exception_list_missing_required(self) -> None:
-        """Test exception list fails without required fields."""
+
+class TestCustomerConfig:
+    """Tests for CustomerConfig model."""
+
+    def test_minimal_customer_config(self) -> None:
+        """Test minimal valid customer config."""
+        config = CustomerConfig(
+            name="ACME Corp",
+            enabled_rules_repo="acme-org/acme-enabled-rules",
+        )
+        assert config.name == "ACME Corp"
+        assert config.enabled_rules_repo == "acme-org/acme-enabled-rules"
+        assert config.authored_rules_repo is None
+        assert config.kibana_url is None
+        assert config.elastic_space == "default"
+
+    def test_full_customer_config(self) -> None:
+        """Test full customer config with all fields."""
+        config = CustomerConfig(
+            name="ACME Corp",
+            enabled_rules_repo="acme-org/acme-enabled-rules",
+            authored_rules_repo="acme-org/acme-authored-rules",
+            kibana_url="https://acme.kb.us-central1.gcp.cloud.es.io",
+            elastic_space="security",
+        )
+        assert config.authored_rules_repo == "acme-org/acme-authored-rules"
+        assert config.kibana_url == "https://acme.kb.us-central1.gcp.cloud.es.io"
+        assert config.elastic_space == "security"
+
+    def test_customer_config_missing_required(self) -> None:
+        """Test customer config fails without required fields."""
         with pytest.raises(ValidationError):
-            ExceptionList(list_id="my-list")  # missing name
+            CustomerConfig(name="ACME Corp")  # missing enabled_rules_repo
 
 
-class TestExceptionItem:
-    """Tests for ExceptionItem model."""
+class TestRuleOverride:
+    """Tests for RuleOverride model."""
 
-    def test_exception_item_with_entry(self) -> None:
-        """Test exception item with entry."""
-        entry = ExceptionEntry(
-            field="host.name",
-            operator="included",
-            type="match",
-            value="server-01",
+    def test_minimal_override(self) -> None:
+        """Test minimal valid override."""
+        override = RuleOverride(rule_id="28d39238-0c01-420a-b77a-24e5a7378663")
+        assert override.rule_id == "28d39238-0c01-420a-b77a-24e5a7378663"
+        assert override.severity is None
+        assert override.risk_score is None
+
+    def test_override_with_severity(self) -> None:
+        """Test override with severity change."""
+        override = RuleOverride(
+            rule_id="28d39238-0c01-420a-b77a-24e5a7378663",
+            severity="critical",
+            risk_score=95,
         )
-        item = ExceptionItem(
-            item_id="item-1",
-            list_id="my-list",
-            name="Allow server-01",
-            entries=[entry],
+        assert override.severity == "critical"
+        assert override.risk_score == 95
+
+    def test_override_invalid_severity(self) -> None:
+        """Test override fails with invalid severity."""
+        with pytest.raises(ValidationError):
+            RuleOverride(
+                rule_id="28d39238-0c01-420a-b77a-24e5a7378663",
+                severity="super-high",  # invalid
+            )
+
+    def test_override_invalid_risk_score(self) -> None:
+        """Test override fails with invalid risk score."""
+        with pytest.raises(ValidationError):
+            RuleOverride(
+                rule_id="28d39238-0c01-420a-b77a-24e5a7378663",
+                risk_score=150,  # must be 0-100
+            )
+
+    def test_override_with_scheduling(self) -> None:
+        """Test override with scheduling fields."""
+        override = RuleOverride(
+            rule_id="28d39238-0c01-420a-b77a-24e5a7378663",
+            interval="1m",
         )
-        assert item.entries[0].field == "host.name"
-        assert item.entries[0].value == "server-01"
+        assert override.interval == "1m"
