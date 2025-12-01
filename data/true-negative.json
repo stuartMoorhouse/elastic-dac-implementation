@@ -1,0 +1,81 @@
+{
+  "labels": {
+    "detection_expected_result": "true_negative",
+    "detection_rule": "curl-pipe-to-shell"
+  },
+  "@timestamp": "2025-12-01T14:25:12.456Z",
+  "agent": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "type": "endpoint",
+    "version": "8.17.0"
+  },
+  "data_stream": {
+    "dataset": "endpoint.events.process",
+    "namespace": "default",
+    "type": "logs"
+  },
+  "ecs": {
+    "version": "8.11.0"
+  },
+  "event": {
+    "action": "exec",
+    "agent_id_status": "verified",
+    "category": "process",
+    "created": "2025-12-01T14:25:12.459Z",
+    "dataset": "endpoint.events.process",
+    "id": "Y3VybC1ub3JtYWwtZG93bmxvYWQtNzg5MDEy",
+    "ingested": "2025-12-01T14:25:14.000Z",
+    "kind": "event",
+    "module": "endpoint",
+    "outcome": "success",
+    "sequence": 5679001,
+    "type": "start"
+  },
+  "group": {
+    "id": "1000",
+    "name": "devops"
+  },
+  "host": {
+    "id": "srv-web-01-abcdef123456",
+    "name": "srv-web-01",
+    "os": {
+      "type": "linux",
+      "name": "Ubuntu",
+      "version": "22.04"
+    }
+  },
+  "message": "Endpoint process event",
+  "process": {
+    "args": ["curl", "-o", "/tmp/package.tar.gz", "https://releases.example.com/app-v2.1.0.tar.gz"],
+    "args_count": 4,
+    "command_line": "curl -o /tmp/package.tar.gz https://releases.example.com/app-v2.1.0.tar.gz",
+    "entity_id": "Y3VybC1kb3dubG9hZC1lbnRpdHktaWQ=",
+    "executable": "/usr/bin/curl",
+    "hash": {
+      "sha256": "def456789abc123def456789abc123def456789abc123def456789abc123defg"
+    },
+    "name": "curl",
+    "parent": {
+      "args": ["bash", "/opt/scripts/deploy.sh"],
+      "args_count": 2,
+      "command_line": "bash /opt/scripts/deploy.sh",
+      "entity_id": "YmFzaC1kZXBsb3ktc2NyaXB0LWVudGl0eQ==",
+      "executable": "/usr/bin/bash",
+      "name": "bash",
+      "pid": 4530,
+      "start": "2025-12-01T14:25:10.123Z",
+      "user": {
+        "id": "1000",
+        "name": "deploy"
+      },
+      "working_directory": "/opt/scripts"
+    },
+    "pid": 4535,
+    "start": "2025-12-01T14:25:12.456Z",
+    "working_directory": "/opt/scripts"
+  },
+  "user": {
+    "id": "1000",
+    "name": "deploy"
+  }
+}

@@ -95,3 +95,22 @@ resource "null_resource" "install_prebuilt_rules" {
     EOT
   }
 }
+
+# Ingest test data into the local deployment
+resource "null_resource" "ingest_test_data" {
+  depends_on = [ec_deployment.local]
+
+  triggers = {
+    deployment_id = ec_deployment.local.id
+  }
+
+  provisioner "local-exec" {
+    command     = "../scripts/ingest-test-data.sh"
+    working_dir = path.module
+
+    environment = {
+      LOCAL_ELASTICSEARCH_URL      = ec_deployment.local.elasticsearch.https_endpoint
+      LOCAL_ELASTICSEARCH_PASSWORD = ec_deployment.local.elasticsearch_password
+    }
+  }
+}
