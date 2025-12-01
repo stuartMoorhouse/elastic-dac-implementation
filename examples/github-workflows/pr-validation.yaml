@@ -1,0 +1,41 @@
+# GitHub Actions workflow for PR validation
+# Copy this file to .github/workflows/pr-validation.yaml in your detection rules repo
+
+name: Validate Detection Rules
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'enablement.yaml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dac
+        run: uv tool install git+https://github.com/stuartMoorhouse/elastic-dac-implementation.git
+
+      - name: Validate YAML
+        run: dac validate
+
+      - name: Show diff
+        env:
+          KIBANA_URL: ${{ secrets.KIBANA_URL }}
+          ELASTIC_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
+        run: |
+          echo "## Drift Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          dac diff 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

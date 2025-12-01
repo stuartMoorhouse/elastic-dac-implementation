@@ -43,6 +43,24 @@ class ElasticClient:
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
 
+    def get_all_rules(self) -> list[dict[str, Any]]:
+        """Fetch all detection rules, handling pagination."""
+        all_rules: list[dict[str, Any]] = []
+        page = 1
+        per_page = 1000  # Max allowed by API
+
+        while True:
+            result = self.find_rules(page=page, per_page=per_page)
+            rules = result.get("data", [])
+            all_rules.extend(rules)
+
+            total = result.get("total", 0)
+            if len(all_rules) >= total:
+                break
+            page += 1
+
+        return all_rules
+
     def get_rule(self, rule_id: str) -> dict[str, Any]:
         """Get a rule by rule_id."""
         response = self._client.get(
