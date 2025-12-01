@@ -1,0 +1,16 @@
+# In-Scope Prebuilt Rules for Customer A
+#
+# This is the master list of prebuilt rules to enable for this customer.
+# Run 'dac sync --customer customer-a' to sync this to the customer's enabled-rules repo.
+#
+# Find rule_ids in Kibana: Security > Rules > click rule > rule_id in details
+
+# Prebuilt rules to enable
+# Use Case 2 will add rules here:
+#   - "28d39238-0c01-420a-b77a-24e5a7378663"  # Sudo Command Enumeration Detected
+#   - "ff10d4d8-fea7-422d-afb1-e5a2702369a9"  # Cron Job Created or Modified
+#   - "0787daa6-f8c5-453b-a4ec-048037f6c1cd"  # Shell via Web Server
+enabled: []
+
+# Prebuilt rules to explicitly disable
+disabled: []

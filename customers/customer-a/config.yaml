@@ -1,0 +1,19 @@
+# Customer Configuration for Customer A
+#
+# This configures where the customer's repos are located.
+
+name: "Customer A"
+
+# GitHub repository for enabled rules (prebuilt rule enablement)
+# Created by Terraform or: ./scripts/setup-enabled-rules-repo.sh customer-a
+enabled_rules_repo: "stuartMoorhouse/customer-a-enabled-rules"
+
+# GitHub repository for authored rules (optional, fork of detection-rules)
+# Created by Terraform or: ./scripts/setup-authored-rules-repo.sh customer-a
+authored_rules_repo: "stuartMoorhouse/customer-a-authored-rules"
+
+# Kibana URL will be set after terraform apply
+# kibana_url: "https://..."
+
+# Kibana space (default: "default")
+elastic_space: "default"
